@@ -1,0 +1,73 @@
+diff --git a/Libraries/STM32_USB_HOST_Library/Core/inc/usbh_ioreq.h b/Libraries/STM32_USB_HOST_Library/Core/inc/usbh_ioreq.h
+index 4bdd436..8943913 100644
+--- a/Libraries/STM32_USB_HOST_Library/Core/inc/usbh_ioreq.h
++++ b/Libraries/STM32_USB_HOST_Library/Core/inc/usbh_ioreq.h
+@@ -105,7 +105,7 @@ USBH_Status USBH_BulkSendData ( USB_OTG_CORE_HANDLE *pdev,
+ 
+ USBH_Status USBH_InterruptReceiveData( USB_OTG_CORE_HANDLE *pdev, 
+                                        uint8_t             *buff, 
+-                                       uint8_t             length,
++                                       uint16_t             length,
+                                        uint8_t             hc_num);
+ 
+ USBH_Status USBH_InterruptSendData( USB_OTG_CORE_HANDLE *pdev, 
+diff --git a/Libraries/STM32_USB_HOST_Library/Core/src/usbh_core.c b/Libraries/STM32_USB_HOST_Library/Core/src/usbh_core.c
+index a155357..9359c83 100644
+--- a/Libraries/STM32_USB_HOST_Library/Core/src/usbh_core.c
++++ b/Libraries/STM32_USB_HOST_Library/Core/src/usbh_core.c
+@@ -714,6 +714,10 @@ USBH_Status USBH_HandleControl (USB_OTG_CORE_HANDLE *pdev, USBH_HOST *phost)
+     { 
+       /* Nack received from device */
+       phost->Control.state = CTRL_DATA_OUT;
++      // according to usb 2.0, [8.6.3, fig. 8-46]
++      //  preserve data phase while retrying nak'ed
++      //  so toggle it twice:
++      pdev->host.hc[phost->Control.hc_num_out].toggle_out ^= 1;
+     }    
+     else if (URB_Status == URB_ERROR)
+     {
+diff --git a/Libraries/STM32_USB_HOST_Library/Core/src/usbh_ioreq.c b/Libraries/STM32_USB_HOST_Library/Core/src/usbh_ioreq.c
+index a890848..2f133f7 100644
+--- a/Libraries/STM32_USB_HOST_Library/Core/src/usbh_ioreq.c
++++ b/Libraries/STM32_USB_HOST_Library/Core/src/usbh_ioreq.c
+@@ -112,6 +112,7 @@ USBH_Status USBH_CtlReq     (USB_OTG_CORE_HANDLE *pdev,
+   {
+   case CMD_SEND:
+     /* Start a SETUP transfer */
++    pdev->host.hc[phost->Control.hc_num_out].toggle_out = 0;	// my fix
+     USBH_SubmitSetupRequest(phost, buff, length);
+     phost->RequestState = CMD_WAIT;
+     status = USBH_BUSY;
+@@ -307,7 +308,7 @@ USBH_Status USBH_BulkReceiveData( USB_OTG_CORE_HANDLE *pdev,
+   */
+ USBH_Status USBH_InterruptReceiveData( USB_OTG_CORE_HANDLE *pdev, 
+                                 uint8_t *buff, 
+-                                uint8_t length,
++                                uint16_t length,
+                                 uint8_t hc_num)
+ {
+ 
+diff --git a/Libraries/STM32_USB_OTG_Driver/src/usb_core.c b/Libraries/STM32_USB_OTG_Driver/src/usb_core.c
+index 74e432a..78fa341 100644
+--- a/Libraries/STM32_USB_OTG_Driver/src/usb_core.c
++++ b/Libraries/STM32_USB_OTG_Driver/src/usb_core.c
+@@ -862,6 +862,7 @@ uint32_t USB_OTG_ResetPort(USB_OTG_CORE_HANDLE *pdev)
+ {
+   USB_OTG_HPRT0_TypeDef  hprt0;
+   
++  USB_OTG_BSP_mDelay (200);   
+   hprt0.d32 = USB_OTG_ReadHPRT0(pdev);
+   hprt0.b.prtrst = 1;
+   USB_OTG_WRITE_REG32(pdev->regs.HPRT0, hprt0.d32);
+diff --git a/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c b/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c
+index bd4081f..5045077 100644
+--- a/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c
++++ b/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c
+@@ -710,6 +710,7 @@ uint32_t USB_OTG_USBH_handle_hc_n_In_ISR (USB_OTG_CORE_HANDLE *pdev , uint32_t n
+              (hcchar.b.eptype == EP_TYPE_BULK))
+     {
+       /* re-activate the channel  */
++      CLEAR_HC_INT(hcreg , nak);   			// else may never return to user code
+       hcchar.b.chen = 1;
+       hcchar.b.chdis = 0;
+       USB_OTG_WRITE_REG32(&pdev->regs.HC_REGS[num]->HCCHAR, hcchar.d32); 
