@@ -1,0 +1,64 @@
+Uubt is for McU UsB BlueTooth
+=============================
+
+This is a demo application for bluetooth USB dongle connected to
+STM32F4DISCOVERY (http://www.st.com/internet/evalboard/product/252419.jsp) board
+based on BTstack (http://code.google.com/p/btstack) project and ST USB libraries.
+
+LICENSING
+---------
+
+My files are licensed under the terms of GPLv3, although I haven't
+thoroughly investigated the licenses compatibility for packages used.
+Please note that files from different projects involved use different licences.
+
+WHAT YOU NEED
+-------------
+
+- STM32F4DISCOVERY board
+- cable to connect it to USB dongle (I use normal USB A male to micro-USB cable + USB A female/USB A female adapter)
+- USB dongle: USB parameters are currently hardcoded rather than read from descriptors,
+  so you should verify that they match (I use lsusb -v for that purpose).
+  Dongles tested thus far are: CSR and Atheros AR3011. Firmware loading is implemented for some Atheros chips
+  but it is not very stable.
+- toolchain and libraries. I use linux, code sourcery lite (eabi build), https://github.com/texane/stlink project.
+  You should download btstack source and STM32F4DISCOVERY firmware package
+  (http://www.st.com/internet/com/SOFTWARE_RESOURCES/SW_COMPONENT/FIRMWARE/stm32f4discovery_fw.zip).
+
+COMPILING
+---------
+
+Fix ST libs (mine are marked as 1.1.0 revision) using the patch provided.
+Btstack source probably needs configuring (I'm not sure).
+
+Couple of build options are currently implemented via Makefile variables, see Makefile head for details.
+
+Fix paths in Makefile and verify that defines in source files match your hardware.
+Grab missing files (such as linker script) from btstack and ST packages.
+After successful make flash the board using gdb shipped with code sourcery lite and stlink utility.
+
+Please have in mind that btstack uses several libc functions. You may use newlib shipped with
+code sourcery lite, but you will need to provide libnosys or stubs file, for instance as described in
+https://sites.google.com/site/stm32discovery/open-source-development-with-the-stm32-discovery/getting-newlib-to-work-with-stm32-and-code-sourcery-lite-eabi
+
+Personally I use custom printf() printing to memory buffer and using stlink/SWD to communicate it to host.
+I find it quite comfortable, but I don't want to share this code because it's very ugly and not essential for this project.
+
+WHAT YOU GET
+------------
+
+The demo app is based on btstack/MSP-EXP430F5438-CC256x/example/spp_counter.c example.
+See btstack site wiki (MSP430 section) for example apps description.
+Besides that I can see my board responding to remote l2ping, hcitool name, hcitool scan and possibly more.
+To observe app main function, connect rfcomm port (sudo rfcomm <connect|bind> 0 <bdaddr> 1),
+start terminal such as minicom and observe "BTstack counter xxxx" lines emerging.
+
+PLANS
+-----
+
+I'd like to try to integrate this example to ChibiOS
+(I mean weak integration, because ST libs are not that tiny).
+Another goal is to squeeze binary to reasonable size.
+
+I'm very interested in your feedback (via github or btstack forum), especially bug fixes ;) and results for different dongles.
+Happy hacking!
