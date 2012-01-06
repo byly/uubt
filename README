@@ -12,6 +12,11 @@ My files are licensed under the terms of GPLv3, although I haven't
 thoroughly investigated the licenses compatibility for packages used.
 Please note that files from different projects involved use different licences.
 
+WHAT IS SPECIAL
+---------------
+Pure FOSS components using hardware comprized of
+very cheap STM32F4DISCOVERY board and commodity bluetooth USB dongles.
+
 WHAT YOU NEED
 -------------
 
@@ -27,6 +32,13 @@ WHAT YOU NEED
 
 COMPILING
 ---------
+
+Currently 2 build flavours are supported: bare (no OS) and for ChibiOS/RT (http://www.chibios.org).
+
+To build for ChibiOS/RT, additionally download respective sources (I use trunk, which is currently at 2.3.4+).
+You will probably not need newlib_stubs.c here.
+
+The description below is for no-OS build.
 
 Fix ST libs (mine are marked as 1.1.0 revision) using the patch provided.
 Btstack source probably needs configuring (I'm not sure).
@@ -53,6 +65,14 @@ Besides that I can see my board responding to remote l2ping, hcitool name, hcito
 To observe app main function, connect rfcomm port (sudo rfcomm <connect|bind> 0 <bdaddr> 1),
 start terminal such as minicom and observe "BTstack counter xxxx" lines emerging.
 
+CURRENT STATE
+-------------
+Using any one of 2 of my dongles, no-OS build flavour feels quite stable.
+
+ChibiOS build works but not so stable, in particular, removing -O0 gcc option breaks things for me.
+l2ping looks reproducable, contrary to rfcomm.
+ChibiOS flavour firmware loading is not tested.
+
 PLANS
 -----
 
@@ -60,5 +80,9 @@ I'd like to try to integrate this example to ChibiOS
 (I mean weak integration, because ST libs are not that tiny).
 Another goal is to squeeze binary to reasonable size.
 
+HOW TO HELP
+-----------
+
 I'm very interested in your feedback (via github or btstack forum), especially bug fixes ;) and results for different dongles.
+If you have stm32f10[57] board, such as Olimex STM32-H107, it would be interesting to give it a run.
 Happy hacking!

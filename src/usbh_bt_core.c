@@ -18,11 +18,14 @@
  */
 
 #include "usbh_core.h"
-#include "usbh_hid_core.h"
+#include "usbh_ioreq.h"
+#include "usbh_stdreq.h"
+#include "usbh_hcs.h"
+#include "hci.h"
 #include <btstack/hci_cmds.h>
-#include "hal_ub.h"
+#include "hal_uubt.h"
 
-#include "my_stdio.h"
+#include <stdio.h>
 #include <string.h>
 
 #define WIRELESS_CLASS 0xe0
@@ -45,7 +48,7 @@
 #define ATH_CHUNK 4096
 
 #ifdef INCLUDE_FIRMWARE
-#include "ath3k_fw.h"
+#include "../firmware/ath3k_fw.c"
 #endif
 
 // buffer sizes: according to stm32f4xx ref. man. [rm0090, 29.16.3, OTG_FS_HCTSIZx.XFRSIZ]
@@ -208,7 +211,7 @@ static USBH_Status USBH_BT_ClassRequest(USB_OTG_CORE_HANDLE *pdev, void *_phost)
 
 // endpoints polling functions:
 
-static int usb_bt_cmd_process()
+static int usb_bt_cmd_process(void)
 {
     USBH_Status st;
 
@@ -238,7 +241,7 @@ static int usb_bt_cmd_process()
     return 0;
 }
 
-static int usb_bt_evt_process()
+static int usb_bt_evt_process(void)
 {
     int len, r;
     uint16_t cur_fn, fn_diff;
@@ -324,7 +327,7 @@ static int usb_bt_aclo_process(const uint8_t * buf)	// tx_end_handler called onl
     return 0;
 }
 
-static int usb_bt_acli_process()
+static int usb_bt_acli_process(void)
 {
     int len;
 

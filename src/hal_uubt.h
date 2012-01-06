@@ -1,5 +1,5 @@
-#ifndef __HAL_UB__H__
-#define __HAL_UB__H__
+#ifndef __HAL_UB_H
+#define __HAL_UB_H
 
 #include <stdint.h>
 
@@ -10,4 +10,4 @@ int  hal_ub_tx_packet(uint8_t packet_type, const uint8_t *packet, uint16_t size)
 
 void hal_ub_reg_rx_packet(void (*rx_cb)(uint8_t packet_type, uint8_t *packet, uint16_t size));
 
-#endif	//__HAL_UB__H__
+#endif	//__HAL_UB_H

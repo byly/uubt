@@ -29,29 +29,32 @@
 
 // This is a thin interface between btstack and stm32 usb.
 
-#include "my_stdio.h"
+#include <stdio.h>
 #include <string.h>
 
 #include "hci.h"
-#include "hci_dump.h"
-#include "hci_transport.h"
 #include <btstack/run_loop.h>
 
-#include "hal_ub.h"
+#include "hal_uubt.h"
 
-static int colormap[9] = {
+static void arm_blinker(int rx, uint8_t packet_type)
+{
 #ifdef BLINK_LEDS
-    [ 0+HCI_COMMAND_DATA_PACKET ] = LED_G,
-    [ 4+HCI_EVENT_PACKET ]        = LED_R,
-    [ 0+HCI_ACL_DATA_PACKET ]     = LED_O,
-    [ 4+HCI_ACL_DATA_PACKET ]     = LED_B,
+    static int colormap[9] = {
+	[ 0+HCI_COMMAND_DATA_PACKET ] = LED_G,
+	[ 4+HCI_EVENT_PACKET ]        = LED_R,
+	[ 0+HCI_ACL_DATA_PACKET ]     = LED_O,
+	[ 4+HCI_ACL_DATA_PACKET ]     = LED_B,
+    };
+    hal_arm_blinker(colormap[(rx ? 4 : 0) + packet_type]);
 #endif
-};
+}
 
-static void dump(const char *label, uint8_t packet_type, uint8_t *data, uint16_t len){
+static void dump(int rx, uint8_t packet_type, uint8_t *data, uint16_t len)
+{
 #ifdef PRINT_PACKETS
     int i;
-    printf("%s: (%02x) ", label, packet_type);
+    printf("%s: (%02x) ", rx ? "rx" : "tx", packet_type);
     for (i=0; i<len; i++){
         printf("%02x ", data[i]);
     }
@@ -65,10 +68,7 @@ static void (*packet_handler)(uint8_t packet_type, uint8_t *packet, uint16_t siz
 
 static int tx_busy = 0;
 
-static int h2_can_send_packet_now(uint8_t packet_type)
-{
-    return !tx_busy;				// currently shared between 2 tx channels
-}
+static int h2_can_send_packet_now(uint8_t packet_type){ return !tx_busy; } 
 
 static int h2_send_packet(uint8_t packet_type, uint8_t *packet, int size)
 {
@@ -76,7 +76,7 @@ static int h2_send_packet(uint8_t packet_type, uint8_t *packet, int size)
         return -1;
     }
     tx_busy = 1;
-    dump("TX", packet_type, packet, size);
+    dump(0, packet_type, packet, size);
     return hal_ub_tx_packet(packet_type, packet, size);
 }
 
@@ -86,15 +86,15 @@ static void h2_tx_end_cb(uint8_t packet_type)
     packet_handler(HCI_EVENT_PACKET, &event, 1);
     tx_busy = 0;
     embedded_trigger();
-    hal_arm_blinker(colormap[0+packet_type]);
+    arm_blinker(0, packet_type);
 }
 
 static void h2_rx_cb(uint8_t packet_type, uint8_t *packet, uint16_t size)
 {
-    dump("RX", packet_type, packet, size);
+    dump(1, packet_type, packet, size);
     packet_handler(packet_type, packet, size);
     embedded_trigger();
-    hal_arm_blinker(colormap[4+packet_type]);
+    arm_blinker(1, packet_type);
 }
 
 static int h2_open(void *transport_config){
@@ -105,13 +105,13 @@ static int h2_open(void *transport_config){
     return 0;
 }
 
-static int h2_close(){ return 0; }
+static int h2_close(void *transport_config){ return 0; }
 
 static void h2_register_packet_handler(void (*handler)(uint8_t packet_type, uint8_t *packet, uint16_t size)){
     packet_handler = handler;
 }
 
-static const char * h2_get_transport_name(){ return "H2_STM"; }
+static const char * h2_get_transport_name(void){ return "UUBT"; }
 
 static hci_transport_t hci_transport_stm = {
     .open                          = h2_open,
@@ -122,4 +122,4 @@ static hci_transport_t hci_transport_stm = {
     .can_send_packet_now           = h2_can_send_packet_now
 };
 
-hci_transport_t * hci_transport_stm_instance() { return &hci_transport_stm; }
+hci_transport_t * hci_transport_stm_instance(void){ return &hci_transport_stm; }

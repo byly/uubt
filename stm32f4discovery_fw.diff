@@ -47,6 +47,26 @@ index a890848..2f133f7 100644
                                  uint8_t hc_num)
  {
  
+diff --git a/Libraries/STM32_USB_OTG_Driver/inc/usb_bsp.h b/Libraries/STM32_USB_OTG_Driver/inc/usb_bsp.h
+index 0e7c12e..aa8ac5f 100644
+--- a/Libraries/STM32_USB_OTG_Driver/inc/usb_bsp.h
++++ b/Libraries/STM32_USB_OTG_Driver/inc/usb_bsp.h
+@@ -25,7 +25,6 @@
+ 
+ /* Includes ------------------------------------------------------------------*/
+ #include "usb_core.h"
+-#include "stm32f4_discovery.h"
+ 
+ /** @addtogroup USB_OTG_DRIVER
+   * @{
+@@ -80,6 +79,7 @@ void USB_OTG_BSP_EnableInterrupt (USB_OTG_CORE_HANDLE *pdev);
+ void USB_OTG_BSP_ConfigVBUS(USB_OTG_CORE_HANDLE *pdev);
+ void USB_OTG_BSP_DriveVBUS(USB_OTG_CORE_HANDLE *pdev,uint8_t state);
+ #endif
++void USB_OTG_ResetPort_I(USB_OTG_CORE_HANDLE *pdev);
+ /**
+   * @}
+   */ 
 diff --git a/Libraries/STM32_USB_OTG_Driver/src/usb_core.c b/Libraries/STM32_USB_OTG_Driver/src/usb_core.c
 index 74e432a..78fa341 100644
 --- a/Libraries/STM32_USB_OTG_Driver/src/usb_core.c
@@ -60,10 +80,27 @@ index 74e432a..78fa341 100644
    hprt0.b.prtrst = 1;
    USB_OTG_WRITE_REG32(pdev->regs.HPRT0, hprt0.d32);
 diff --git a/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c b/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c
-index bd4081f..5045077 100644
+index bd4081f..090125a 100644
 --- a/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c
 +++ b/Libraries/STM32_USB_OTG_Driver/src/usb_hcd_int.c
-@@ -710,6 +710,7 @@ uint32_t USB_OTG_USBH_handle_hc_n_In_ISR (USB_OTG_CORE_HANDLE *pdev , uint32_t n
+@@ -21,6 +21,7 @@
+ 
+ /* Includes ------------------------------------------------------------------*/
+ #include "usb_core.h"
++#include "usb_bsp.h"
+ #include "usb_defines.h"
+ #include "usb_hcd_int.h"
+ 
+@@ -431,7 +432,7 @@ static uint32_t USB_OTG_USBH_handle_port_ISR (USB_OTG_CORE_HANDLE *pdev)
+   }
+   if (do_reset)
+   {
+-    USB_OTG_ResetPort(pdev);
++    USB_OTG_ResetPort_I(pdev);
+     
+   }
+   /* Clear Port Interrupts */
+@@ -710,6 +711,7 @@ uint32_t USB_OTG_USBH_handle_hc_n_In_ISR (USB_OTG_CORE_HANDLE *pdev , uint32_t n
               (hcchar.b.eptype == EP_TYPE_BULK))
      {
        /* re-activate the channel  */

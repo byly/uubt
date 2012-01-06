@@ -1,8 +1,5 @@
-/* vi:set ts=4: */
 
-		//*** Quick'n'dirty usb host bt class.  Byly Dec-2011.  ***//
-
-// loosely based on stm32f4 audio demo and btstack msp-430 spp_counter.c example
+// Uubt spp_counter demo: based on btstack/MSP-EXP430F5438-CC256x/example/spp_counter.c
 
 //*****************************************************************************
 //
@@ -12,11 +9,15 @@
 //
 //*****************************************************************************
 
-#include "stm32f4xx.h"
-#include "usbh_core.h"
+#ifdef CHIBIOS
+#include "ch.h"
+#include "hal.h"
+#endif
 
-#include "my_stdio.h"
+#include "my_usb.h"
+
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <btstack/hci_cmds.h>
@@ -43,62 +44,62 @@ static void packet_handler (void * connection, uint8_t packet_type, uint16_t cha
     uint8_t   rfcomm_channel_nr;
     uint16_t  mtu;
     
-	switch (packet_type) {
-		case HCI_EVENT_PACKET:
-			switch (packet[0]) {
-					
-				case BTSTACK_EVENT_STATE:
-					// bt stack activated, get started - set local name
-					if (packet[2] == HCI_STATE_WORKING) {
+    switch (packet_type) {
+        case HCI_EVENT_PACKET:
+            switch (packet[0]) {
+                    
+                case BTSTACK_EVENT_STATE:
+                    // bt stack activated, get started - set local name
+                    if (packet[2] == HCI_STATE_WORKING) {
                         hci_send_cmd(&hci_write_local_name, "BlueMSP-Demo");
-					}
-					break;
-				
-				case HCI_EVENT_COMMAND_COMPLETE:
-					if (COMMAND_COMPLETE_EVENT(packet, hci_read_bd_addr)){
+                    }
+                    break;
+                
+                case HCI_EVENT_COMMAND_COMPLETE:
+                    if (COMMAND_COMPLETE_EVENT(packet, hci_read_bd_addr)){
                         bt_flip_addr(event_addr, &packet[6]);
                         printf("BD-ADDR: %s\n", bd_addr_to_str(event_addr));
                         break;
                     }
-					if (COMMAND_COMPLETE_EVENT(packet, hci_write_local_name)){
+                    if (COMMAND_COMPLETE_EVENT(packet, hci_write_local_name)){
                         hci_discoverable_control(1);
                         break;
                     }
                     break;
 
-				case HCI_EVENT_LINK_KEY_REQUEST:
-					// deny link key request
+                case HCI_EVENT_LINK_KEY_REQUEST:
+                    // deny link key request
                     printf("Link key request\n");
                     bt_flip_addr(event_addr, &packet[2]);
-					hci_send_cmd(&hci_link_key_request_negative_reply, &event_addr);
-					break;
-					
-				case HCI_EVENT_PIN_CODE_REQUEST:
-					// inform about pin code request
+                    hci_send_cmd(&hci_link_key_request_negative_reply, &event_addr);
+                    break;
+                    
+                case HCI_EVENT_PIN_CODE_REQUEST:
+                    // inform about pin code request
                     printf("Pin code request - using '0000'\n");
                     bt_flip_addr(event_addr, &packet[2]);
-					hci_send_cmd(&hci_pin_code_request_reply, &event_addr, 4, "0000");
-					break;
+                    hci_send_cmd(&hci_pin_code_request_reply, &event_addr, 4, "0000");
+                    break;
                 
                 case RFCOMM_EVENT_INCOMING_CONNECTION:
-					// data: event (8), len(8), address(48), channel (8), rfcomm_cid (16)
-					bt_flip_addr(event_addr, &packet[2]); 
-					rfcomm_channel_nr = packet[8];
-					rfcomm_channel_id = READ_BT_16(packet, 9);
-					printf("RFCOMM channel %u requested for %s\n", rfcomm_channel_nr, bd_addr_to_str(event_addr));
+                    // data: event (8), len(8), address(48), channel (8), rfcomm_cid (16)
+                    bt_flip_addr(event_addr, &packet[2]); 
+                    rfcomm_channel_nr = packet[8];
+                    rfcomm_channel_id = READ_BT_16(packet, 9);
+                    printf("RFCOMM channel %u requested for %s\n", rfcomm_channel_nr, bd_addr_to_str(event_addr));
                     rfcomm_accept_connection_internal(rfcomm_channel_id);
-					break;
-					
-				case RFCOMM_EVENT_OPEN_CHANNEL_COMPLETE:
-					// data: event(8), len(8), status (8), address (48), server channel(8), rfcomm_cid(16), max frame size(16)
-					if (packet[2]) {
-						printf("RFCOMM channel open failed, status %u\n", packet[2]);
-					} else {
-						rfcomm_channel_id = READ_BT_16(packet, 12);
-						mtu = READ_BT_16(packet, 14);
-						printf("\n\rRFCOMM channel open succeeded. New RFCOMM Channel ID %u, max frame size %u\n", rfcomm_channel_id, mtu);
-					}
-					break;
+                    break;
+                    
+                case RFCOMM_EVENT_OPEN_CHANNEL_COMPLETE:
+                    // data: event(8), len(8), status (8), address (48), server channel(8), rfcomm_cid(16), max frame size(16)
+                    if (packet[2]) {
+                        printf("RFCOMM channel open failed, status %u\n", packet[2]);
+                    } else {
+                        rfcomm_channel_id = READ_BT_16(packet, 12);
+                        mtu = READ_BT_16(packet, 14);
+                        printf("\n\rRFCOMM channel open succeeded. New RFCOMM Channel ID %u, max frame size %u\n", rfcomm_channel_id, mtu);
+                    }
+                    break;
                     
                 case RFCOMM_EVENT_CHANNEL_CLOSED:
                     rfcomm_channel_id = 0;
@@ -106,12 +107,12 @@ static void packet_handler (void * connection, uint8_t packet_type, uint16_t cha
                 
                 default:
                     break;
-			}
+            }
             break;
                         
         default:
             break;
-	}
+    }
 }
 
 static void  heartbeat_handler(struct timer *ts){
@@ -128,14 +129,8 @@ static void  heartbeat_handler(struct timer *ts){
     }
     run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
     run_loop_add_timer(ts);
+    printf("tick\n");
 } 
-
-// st lib (non-bts) globals:
-
-USB_OTG_CORE_HANDLE USB_OTG_Core;
-USBH_HOST USB_Host;
-extern USBH_Class_cb_TypeDef USBH_BT_cb;
-extern USBH_Usr_cb_TypeDef USR_Callbacks;
 
 // bts ds wrapper for st lib USBH_Process():
 
@@ -147,28 +142,19 @@ static int stlib_usb_process(struct data_source *ds)
 
 static struct data_source stlib_usb_process_ds = { .process = stlib_usb_process };
 
-// bts hal_{cpu,tick}* stuff inlined:
-
-hci_transport_t * hci_transport_stm_instance(void);
-
-void hal_cpu_disable_irqs(){ __disable_irq(); }
-void hal_cpu_enable_irqs(){ __enable_irq(); }
-void hal_cpu_enable_irqs_and_sleep(){ __enable_irq(); }
-
-static void dummy_tick_handler(void){};
-void (*tick_handler)(void) = &dummy_tick_handler;
-void hal_tick_init(void){}
-int  hal_tick_get_tick_period_in_ms(void){ return 10; }
-void hal_tick_set_handler(void (*handler)(void)){ tick_handler = handler ? handler : dummy_tick_handler; }
+USB_OTG_CORE_HANDLE USB_OTG_Core;
+USBH_HOST USB_Host;
 
 int main(void)
 {
-    RCC_ClocksTypeDef RCC_Clocks;
-    RCC_GetClocksFreq(&RCC_Clocks);
-    SysTick_Config(RCC_Clocks.HCLK_Frequency * hal_tick_get_tick_period_in_ms() / 1000);
+#ifdef CHIBIOS
+    halInit();
+    chSysInit();
+#endif
 
     init_shmem();
     led_pwm_config();
+    my_usb_bsp_init();
 
     /// GET STARTED with BTstack ///
     btstack_memory_init();

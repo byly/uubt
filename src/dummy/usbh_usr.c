@@ -2,6 +2,7 @@
 // User callbacks for ST USB libs.
 
 #include "usbh_core.h"
+#include "usb_bsp.h"	// USB_OTG_BSP_mDelay
 
 void USBH_USR_Init(void){}
 void USBH_USR_DeInit(void){}
@@ -20,11 +21,13 @@ void USBH_USR_SerialNum_String(void *SerialNumString){}
 
 void USBH_USR_EnumerationDone(void)
 {
-    USB_OTG_BSP_mDelay(500);		// 1000 is possibly (not certain) better for ath3k
+    // it's a fix, leave it here for the time being
+    // 1000 is possibly (not certain) better for ath3k
+    USB_OTG_BSP_mDelay(500);
 } 
 
 USBH_USR_Status USBH_USR_UserInput(void){ return USBH_USR_RESP_OK; }
-int  USBH_USR_BT_Application(void){}
+int  USBH_USR_Application(void){ return 0; }
 void USBH_USR_DeviceNotSupported(void){}
 void USBH_USR_UnrecoveredError (void){}
 
@@ -45,7 +48,7 @@ USBH_Usr_cb_TypeDef USR_Callbacks =
     USBH_USR_SerialNum_String,
     USBH_USR_EnumerationDone,
     USBH_USR_UserInput,
-    USBH_USR_BT_Application,
+    USBH_USR_Application,
     USBH_USR_DeviceNotSupported,
     USBH_USR_UnrecoveredError
 };
